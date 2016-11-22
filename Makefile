@@ -4,18 +4,25 @@ BINDIR = bin
 JC = javac
 JAVA = java
 
-JFLAGS = -cp $(BINDIR) -d $(BINDIR)
+LIBS = algs4.jar:blockChainGrader.jar:rsa.jar:txCoinGrader.jar
+CLASSPATH = $(BINDIR):$(LIBS)
+
+JCFLAGS = -classpath $(CLASSPATH) -sourcepath $(SRCDIR) -d $(BINDIR)
+JFLAGS = -classpath $(CLASSPATH)
 
 SOURCES = $(wildcard $(addsuffix /*.java,$(SRCDIR)))
 CLASSES = $(subst $(SRCDIR),$(BINDIR),$(patsubst %.java,%.class,$(SOURCES)))
 
-all: $(CLASSES)
+all: $(BINDIR) $(CLASSES)
+
+$(BINDIR): 
+	@if [ ! -d "$(BINDIR)" ]; then mkdir -p $(BINDIR); fi
 
 $(CLASSES): $(BINDIR)/%.class : $(SRCDIR)/%.java
-	$(JC) $(JFLAGS) $< 
+	$(JC) $(JCFLAGS) $< 
 
 clean:
-	rm -rf $(BINDIR)/*.class
+	rm -rf $(BINDIR)
 
 testTxHandler: all
 	$(JAVA) $(JFLAGS) TestTxHandler
