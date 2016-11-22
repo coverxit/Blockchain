@@ -1,11 +1,14 @@
+import java.util.HashSet;
+
 public class TxHandler {
 
+    private UTXOPool utxoPool = null;
     /* Creates a public ledger whose current UTXOPool (collection of unspent
      * transaction outputs) is utxoPool. This should make a defensive copy of
      * utxoPool by using the UTXOPool(UTXOPool uPool) constructor.
      */
     public TxHandler(UTXOPool utxoPool) {
-        // IMPLEMENT THIS
+        this.utxoPool = new UTXOPool(utxoPool);
     }
 
 	/* Returns true if 
@@ -19,8 +22,47 @@ public class TxHandler {
 	 */
 
     public boolean isValidTx(Transaction tx) {
-        // IMPLEMENT THIS
-        return false;
+        // We only deal with incoinbase transactions.
+        if (!tx.isCoinbase()) {
+            HashSet<UTXO> claimedUTXOs = new HashSet<UTXO>();
+            double inputSum = 0, outputSum = 0;
+
+            for (int i = 0; i < tx.numInputs(); i++) {
+                Transaction.Input in = tx.getInput(i);
+                UTXO utxo = new UTXO(in.prevTxHash, in.outputIndex);
+
+                // (1) and (3)
+                if (!utxoPool.contains(utxo) || claimedUTXOs.contains(utxo))
+                    return false;
+                else
+                {
+                    // (3)
+                    claimedUTXOs.add(utxo);
+
+                    // (2)
+                    Transaction.Output prevOutput = utxoPool.getTxOutput(utxo);
+                    if (!prevOutput.address.verifySignature(tx.getRawDataToSign(i), in.signature))
+                        return false;
+
+                    // (5)
+                    inputSum += prevOutput.value;
+                }
+            }
+
+            // (4)
+            for (Transaction.Output out : tx.getOutputs()) {
+                if (out.value < 0)
+                    return false;
+
+                outputSum += out.value;
+            }
+
+            // (5)
+            if (inputSum < outputSum)
+                return false;
+        }
+
+        return true;
     }
 
     /* Handles each epoch by receiving an unordered array of proposed
@@ -29,8 +71,27 @@ public class TxHandler {
      * and updating the current UTXO pool as appropriate.
      */
     public Transaction[] handleTxs(Transaction[] possibleTxs) {
-        // IMPLEMENT THIS
-        return null;
+        TransactionPool txPool = new TransactionPool();
+
+        for (Transaction tx : possibleTxs) {
+            if (isValidTx(tx)) {
+                // Remove all UTXO corresponding to tx inputs from utxoPool.
+                for (int i = 0; i < tx.numInputs(); i++) {
+                    UTXO utxo = new UTXO(tx.getInput(i).prevTxHash, tx.getInput(i).outputIndex);
+                    utxoPool.removeUTXO(utxo);
+                }
+
+                // Add all tx outputs to utxoPool.
+                for (int i = 0; i < tx.numOutputs(); i++) {
+                    UTXO utxo = new UTXO(tx.getHash(), i);
+                    utxoPool.addUTXO(utxo, tx.getOutput(i));
+                }
+
+                txPool.addTransaction(tx);
+            }
+        }
+
+        return txPool.getTransactions().toArray(new Transaction[txPool.getTransactions().size()]);
     }
 
 } 
