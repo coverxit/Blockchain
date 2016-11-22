@@ -9,7 +9,7 @@ public class TxHandler {
      * utxoPool by using the UTXOPool(UTXOPool uPool) constructor.
      */
     public TxHandler(UTXOPool utxoPool) {
-        this.utxoPool = new UTXOPool(utxoPool);
+        this.utxoPool = utxoPool;
     }
 
 	/* Returns true if 
@@ -92,7 +92,7 @@ public class TxHandler {
             }
         }
 
-        return txList.toArray(new Transaction[txList.size()]);
+        return txList.toArray(new Transaction[0]);
     }
 
 } 

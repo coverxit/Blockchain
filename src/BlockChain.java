@@ -5,9 +5,12 @@ import java.util.HashMap;
    You should not have the all the blocks added to the block chain in memory 
    as it would overflow memory
  */
-
 public class BlockChain {
     public static final int CUT_OFF_AGE = 10;
+
+    private TransactionPool txPool;
+    private BlockNode maxHeightNode;
+    private HashMap<ByteArrayWrapper, BlockNode> blockToNode;
 
     // all information required in handling a block in block chain
     private class BlockNode {
@@ -40,26 +43,34 @@ public class BlockChain {
      * Assume genesis block is a valid block
      */
     public BlockChain(Block genesisBlock) {
-        // IMPLEMENT THIS
+        UTXOPool utxoPool = new UTXOPool();
+        Transaction coinbase = genesisBlock.getCoinbase();
+        utxoPool.addUTXO(new UTXO(coinbase.getHash(), 0), coinbase.getOutput(0));
+
+        maxHeightNode = new BlockNode(genesisBlock, null, utxoPool);
+        txPool = new TransactionPool();
+        blockToNode = new HashMap<ByteArrayWrapper, BlockNode>();
+
+        blockToNode.put(new ByteArrayWrapper(genesisBlock.getHash()), maxHeightNode);
     }
 
     /* Get the maximum height block
      */
     public Block getMaxHeightBlock() {
-        // IMPLEMENT THIS
+        return maxHeightNode.b;
     }
 
     /* Get the UTXOPool for mining a new block on top of
      * max height block
      */
     public UTXOPool getMaxHeightUTXOPool() {
-        // IMPLEMENT THIS
+        return maxHeightNode.getUTXOPoolCopy();
     }
 
     /* Get the transaction pool to mine a new block
      */
     public TransactionPool getTransactionPool() {
-        // IMPLEMENT THIS
+        return new TransactionPool(txPool);
     }
 
     /* Add a block to block chain if it is valid.
@@ -71,12 +82,55 @@ public class BlockChain {
      * Return true of block is successfully added
      */
     public boolean addBlock(Block b) {
-        // IMPLEMENT THIS
+        // Genesis block?
+        if (b.getPrevBlockHash() == null)
+            return false;
+
+        // Check height
+        BlockNode prevNode = blockToNode.get(new ByteArrayWrapper(b.getPrevBlockHash()));
+        if (prevNode == null || prevNode.height + 1 <= maxHeightNode.height - CUT_OFF_AGE)
+            return false;
+
+        // Process transactions
+        UTXOPool utxoPool = prevNode.getUTXOPoolCopy();
+        TxHandler txHandler = new TxHandler(utxoPool);
+        for (Transaction tx : b.getTransactions()) {
+            // Check transaction validity
+            if (!txHandler.isValidTx(tx))
+                return false;
+
+            // Remove all UTXO corresponding to tx inputs from utxoPool.
+            for (int i = 0; i < tx.numInputs(); i++) {
+                UTXO utxo = new UTXO(tx.getInput(i).prevTxHash, tx.getInput(i).outputIndex);
+                utxoPool.removeUTXO(utxo);
+            }
+
+            // Add all tx outputs to utxoPool.
+            for (int i = 0; i < tx.numOutputs(); i++) {
+                UTXO utxo = new UTXO(tx.getHash(), i);
+                utxoPool.addUTXO(utxo, tx.getOutput(i));
+            }
+
+            // Update txPool
+            txPool.removeTransaction(tx.getHash());
+        }
+
+        BlockNode newNode = new BlockNode(b, prevNode, utxoPool);
+        // Update maxHeightNode
+        if (newNode.height > maxHeightNode.height)
+            maxHeightNode = newNode;
+
+        // Update utxoPool with b's coinbase.
+        utxoPool.addUTXO(new UTXO(b.getCoinbase().getHash(), 0), b.getCoinbase().getOutput(0));
+
+        // Update map
+        blockToNode.put(new ByteArrayWrapper(b.getHash()), newNode);
+        return true;
     }
 
     /* Add a transaction in transaction pool
      */
     public void addTransaction(Transaction tx) {
-        // IMPLEMENT THIS
+        txPool.addTransaction(tx);
     }
 }
