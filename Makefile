@@ -27,4 +27,9 @@ clean:
 testTxHandler: all
 	$(JAVA) $(JFLAGS) TestTxHandler
 
-.PHONY: all clean testTxHandler
+testBlockChain: all
+	$(JAVA)	$(JFLAGS) DropboxTestBlockChain
+
+test: testTxHandler testBlockChain
+
+.PHONY: all clean test testTxHandler testBlockChain
