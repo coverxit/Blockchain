@@ -101,8 +101,7 @@ public class TxHandler {
     /* Returns the current UTXO pool.
      * If no outstanding UTXOs, returns an empty (non-null) UTXOPool object.
      */
-    public UTXOPool getUTXOPool()
-    {
+    public UTXOPool getUTXOPool() {
         return new UTXOPool(utxoPool);
     }
 
