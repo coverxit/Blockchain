@@ -12,7 +12,7 @@ public class TxHandler {
         if (utxoPool == null)
             this.utxoPool = new UTXOPool();
         else
-            this.utxoPool = utxoPool;
+            this.utxoPool = new UTXOPool(utxoPool);
     }
 
 	/* Returns true if 
@@ -102,7 +102,7 @@ public class TxHandler {
      * If no outstanding UTXOs, returns an empty (non-null) UTXOPool object.
      */
     public UTXOPool getUTXOPool() {
-        return new UTXOPool(utxoPool);
+        return utxoPool;
     }
 
 } 

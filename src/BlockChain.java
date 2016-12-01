@@ -92,37 +92,28 @@ public class BlockChain {
             return false;
 
         // Process transactions
-        UTXOPool utxoPool = prevNode.getUTXOPoolCopy();
-        TxHandler txHandler = new TxHandler(utxoPool);
-        for (Transaction tx : b.getTransactions()) {
-            // Check transaction validity
-            if (!txHandler.isValidTx(tx))
-                return false;
+        TxHandler txHandler = new TxHandler(prevNode.getUTXOPoolCopy());
+        Transaction[] processedTxs = txHandler.handleTxs(b.getTransactions().toArray(new Transaction[0]));
+        
+        // If invalid transactions exist, then the amount of processedTxs would be less than the original.
+        if (processedTxs.length < b.getTransactions().size())
+        	return false;
+        
+        // Update txPool
+        for (Transaction tx : processedTxs)
+        	txPool.removeTransaction(tx.getHash());
 
-            // Remove all UTXO corresponding to tx inputs from utxoPool.
-            for (int i = 0; i < tx.numInputs(); i++) {
-                UTXO utxo = new UTXO(tx.getInput(i).prevTxHash, tx.getInput(i).outputIndex);
-                utxoPool.removeUTXO(utxo);
-            }
+        // Update utxoPool with b's coinbase
+        UTXOPool utxoPool = new UTXOPool(txHandler.getUTXOPool());
+        utxoPool.addUTXO(new UTXO(b.getCoinbase().getHash(), 0), b.getCoinbase().getOutput(0));
 
-            // Add all tx outputs to utxoPool.
-            for (int i = 0; i < tx.numOutputs(); i++) {
-                UTXO utxo = new UTXO(tx.getHash(), i);
-                utxoPool.addUTXO(utxo, tx.getOutput(i));
-            }
-
-            // Update txPool
-            txPool.removeTransaction(tx.getHash());
-        }
-
+        // Create new node
         BlockNode newNode = new BlockNode(b, prevNode, utxoPool);
         // Update maxHeightNode
         if (newNode.height > maxHeightNode.height)
             maxHeightNode = newNode;
 
-        // Update utxoPool with b's coinbase.
-        utxoPool.addUTXO(new UTXO(b.getCoinbase().getHash(), 0), b.getCoinbase().getOutput(0));
-
+        
         // Update map
         blockToNode.put(new ByteArrayWrapper(b.getHash()), newNode);
         return true;
